@@ -1,0 +1,29 @@
+meta {
+  name: Get Results
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/results
+  body: none
+  auth: none
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns all 10 beers", function () {
+    expect(res.getBody().results).to.have.lengthOf(10);
+  });
+
+  test("has total_votes", function () {
+    expect(res.getBody()).to.have.property("total_votes");
+  });
+}
+
+docs {
+  Online aggregation over stored votes. Always returns all 10 nominees with `votes` and `share`.
+}

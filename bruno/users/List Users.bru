@@ -1,0 +1,37 @@
+meta {
+  name: List Users
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/v1/users
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+  page_size: 20
+  sort: created_at
+  order: desc
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("has pagination fields", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("items");
+    expect(body).to.have.property("page");
+    expect(body).to.have.property("page_size");
+    expect(body).to.have.property("total");
+    expect(body).to.have.property("total_pages");
+  });
+}
+
+docs {
+  Default listing: newest users first.
+}

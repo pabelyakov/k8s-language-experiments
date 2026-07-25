@@ -1,0 +1,31 @@
+meta {
+  name: List Beers
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/v1/beers
+  body: none
+  auth: none
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns 10 nominees", function () {
+    expect(res.getBody().items).to.have.lengthOf(10);
+  });
+
+  test("first beer is Pilsner Urquell", function () {
+    const first = res.getBody().items[0];
+    expect(first.id).to.equal(1);
+    expect(first.name).to.equal("Pilsner Urquell");
+  });
+}
+
+docs {
+  Hardcoded nominees (id 1..10), sorted by id ascending.
+}

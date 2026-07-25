@@ -1,0 +1,33 @@
+meta {
+  name: Create Vote Duplicate
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/v1/votes
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "user_id": "{{userId}}",
+    "beer_id": 1
+  }
+}
+
+tests {
+  test("status is 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}
+
+docs {
+  Negative case: same `userId` voting again should return 409.
+  Run Create User + Create Vote before this request.
+}

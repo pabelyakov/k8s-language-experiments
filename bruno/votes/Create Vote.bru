@@ -1,0 +1,41 @@
+meta {
+  name: Create Vote
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/v1/votes
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "user_id": "{{userId}}",
+    "beer_id": {{beerId}}
+  }
+}
+
+tests {
+  test("status is 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("vote payload looks correct", function () {
+    const body = res.getBody();
+    expect(body.user_id).to.equal(bru.getEnvVar("userId"));
+    expect(body.beer_id).to.equal(Number(bru.getEnvVar("beerId")));
+    expect(body).to.have.property("beer_name");
+    expect(body).to.have.property("voted_at");
+  });
+}
+
+docs {
+  Cast a vote for `{{beerId}}` on behalf of `{{userId}}`.
+  Run **Users / Create User** first so `userId` is set.
+}

@@ -1,0 +1,20 @@
+{
+	skip_install_trust
+	frankenphp {
+		# Must be greater than worker count.
+		num_threads 2
+	}
+}
+
+:8080 {
+	root public/
+	encode zstd br gzip
+	php_server {
+		# All requests → one worker so Laravel + InMemoryStore stay resident.
+		worker {
+			file /app/public/frankenphp-worker.php
+			num 1
+			match /*
+		}
+	}
+}

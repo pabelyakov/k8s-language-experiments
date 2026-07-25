@@ -1,0 +1,32 @@
+meta {
+  name: Create Vote Unknown User
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/v1/votes
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "beer_id": 3
+  }
+}
+
+tests {
+  test("status is 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}
+
+docs {
+  Negative case: unknown user_id → 404.
+}

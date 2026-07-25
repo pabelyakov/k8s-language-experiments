@@ -1,0 +1,6 @@
+{
+  "version": "1",
+  "name": "beer-vote",
+  "type": "collection",
+  "ignore": ["node_modules", ".git"]
+}

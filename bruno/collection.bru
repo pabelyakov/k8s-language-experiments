@@ -1,0 +1,22 @@
+meta {
+  name: beer-vote
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  # beer-vote
+
+  In-memory voting API for the k8s language meetup.
+
+  ## Flow
+  1. `Health` → check runtime
+  2. `Beers / List Beers` → nominees 1..10
+  3. `Users / Create User` → saves `userId` into the active environment
+  4. `Votes / Create Vote` → uses `{{userId}}`
+  5. `Results / Get Results` → online tally
+
+  Switch `baseUrl` via environments (Local by default, port 8080).
+}

@@ -1,0 +1,45 @@
+meta {
+  name: Create User
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/v1/users
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "{{userName}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const body = res.getBody();
+    bru.setEnvVar("userId", body.id);
+  }
+}
+
+tests {
+  test("status is 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("has id and name", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("id");
+    expect(body.name).to.equal(bru.getEnvVar("userName"));
+    expect(body).to.have.property("created_at");
+  });
+}
+
+docs {
+  Creates an in-memory user. On success, saves `userId` into the active environment for subsequent vote requests.
+}

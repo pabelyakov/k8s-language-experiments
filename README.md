@@ -17,3 +17,8 @@ docker run --rm -p 8080:8080 beer-vote:dotnet
 cd go
 docker build -t beer-vote:go .
 docker run --rm -p 8080:8080 beer-vote:go
+
+# PHP 8.3+ (Laravel 11)
+cd php
+docker build -t beer-vote:php .
+docker run --rm -p 8080:8080 beer-vote:php
