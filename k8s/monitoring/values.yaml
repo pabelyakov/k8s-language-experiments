@@ -1,0 +1,45 @@
+# VictoriaMetrics k8s-stack: single-node VM + Grafana
+# Retention: 1 day for all metrics
+
+vmsingle:
+  enabled: true
+  spec:
+    retentionPeriod: "1d"
+    replicaCount: 1
+    storage:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+
+vmcluster:
+  enabled: false
+
+vmalert:
+  enabled: true
+  spec:
+    extraArgs:
+      notifier.blackhole: "true"
+
+alertmanager:
+  enabled: false
+
+grafana:
+  enabled: true
+  adminPassword: admin
+  persistence:
+    enabled: true
+    size: 2Gi
+  service:
+    type: NodePort
+    nodePort: 30030
+
+defaultDashboards:
+  enabled: true
+
+kube-state-metrics:
+  enabled: true
+
+prometheus-node-exporter:
+  enabled: true
