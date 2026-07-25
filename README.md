@@ -12,3 +12,8 @@ docker run --rm -p 8080:8080 beer-vote:nodejs
 cd dotnet
 docker build -t beer-vote:dotnet .
 docker run --rm -p 8080:8080 beer-vote:dotnet
+
+# Go 1.22+ (chi)
+cd go
+docker build -t beer-vote:go .
+docker run --rm -p 8080:8080 beer-vote:go
