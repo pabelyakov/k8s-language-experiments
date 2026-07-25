@@ -1,183 +1,247 @@
 # k6 load tests for beer-vote
 
-Сценарии нагружают один и тот же API на всех runtime (Java / .NET / Go / Node / PHP).
+In-memory API: при `connection refused` / transport error прогон **сразу abort** —
+рестарт сервиса обнуляет данные, продолжать бессмысленно.
 
-# 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=go_smoke_report.html k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/smoke.js`
+## Сценарии
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=go_load_report.html k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/load.js`
+| # | Файл / скрипт | Что делает |
+|---|---------------|------------|
+| 1 | `scenarios/01_beers_max.js` | max RPS на `GET /v1/beers` |
+| 2 | `scenarios/02_users_max.js` | max RPS на `POST /v1/users` |
+| 3 | `scripts/03_users_then_votes.sh` | fill N users (low) → max RPS на `POST /v1/votes` |
+| 4 | `scripts/04_init_then_results.sh` | fill N users+votes (low) → max RPS на `GET /v1/results` |
+| 5 | `scenarios/05_mixed.js` | смешанный трафик |
+| — | `scenarios/smoke.js` | быстрый happy-path |
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=go_spike_report.html k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/spike.js`
+## Быстрый старт
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=go_stress_report.html k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/stress.js`
+Из **корня репозитория**:
 
----
+```bash
+# сервис на :8080
+curl -s http://localhost:8080/health
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=dotnet_smoke_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/smoke.js`
+# sanity
+k6 run k6/scenarios/smoke.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=dotnet_load_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/load.js`
+# 1) ceiling на чтение beers
+k6 run k6/scenarios/01_beers_max.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=dotnet_spike_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/spike.js`
+# 2) ceiling на запись users
+k6 run k6/scenarios/02_users_max.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=dotnet_stress_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/stress.js`
+# 3) 1M users → max votes  (для пробы: TARGET_USERS=1000)
+TARGET_USERS=1000000 FILL_RATE=50 bash k6/scripts/03_users_then_votes.sh
 
----
+# 4) 10M users+votes → max results  (для пробы: TARGET_USERS=1000)
+TARGET_USERS=10000000 FILL_RATE=40 bash k6/scripts/04_init_then_results.sh
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=java_smoke_report.html k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/smoke.js`
+# 5) mixed
+k6 run -e VUS=50 -e DURATION=5m k6/scenarios/05_mixed.js
+```
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=java_load_report.html k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/load.js`
+## Прогон против k3s (по runtime) + HTML-отчёт
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=java_spike_report.html k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/spike.js`
+NodePort’ы из манифестов `k8s/*.yaml`:
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=java_stress_report.html k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/stress.js`
+| Runtime | Manifest | NodePort |
+|---------|----------|----------|
+| Go | `k8s/go.yaml` | `30001` |
+| PHP | `k8s/php.yaml` | `30002` |
+| Java | `k8s/java.yaml` | `30003` |
+| Node.js | `k8s/nodejs.yaml` | `30004` |
+| .NET | `k8s/dotnet.yaml` | `30005` |
+| Bun | `k8s/bun.yaml` | `30006` |
 
----
+Подставь IP ноды k3s вместо `NODE_IP` (пример: `192.168.1.254`):
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_smoke_report.html k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/smoke.js`
+```bash
+export NODE_IP=192.168.1.254
+mkdir -p k6/reports
+```
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_load_report.html k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/load.js`
+Отчёт: live UI на время прогона (`http://127.0.0.1:5665`) + HTML-файл через
+`K6_WEB_DASHBOARD=true` и `K6_WEB_DASHBOARD_EXPORT=...`.
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_spike_report.html k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/spike.js`
+### Smoke (все runtime)
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_stress_report.html k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/stress.js`
+```bash
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/go_smoke_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/smoke.js
 
----
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/php_smoke_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30002 k6/scenarios/smoke.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_smoke_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/smoke.js`
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/java_smoke_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/smoke.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_load_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/load.js`
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/nodejs_smoke_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/smoke.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_spike_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/spike.js`
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/dotnet_smoke_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/smoke.js
 
-`K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=nodejs_stress_report.html k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/stress.js`
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/bun_smoke_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30006 k6/scenarios/smoke.js
+```
 
+### 1) Max RPS — beers
+
+```bash
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/go_01_beers_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/01_beers_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/php_01_beers_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30002 k6/scenarios/01_beers_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/java_01_beers_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/01_beers_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/nodejs_01_beers_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/01_beers_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/dotnet_01_beers_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/01_beers_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/bun_01_beers_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30006 k6/scenarios/01_beers_max.js
+```
+
+### 2) Max RPS — users
+
+```bash
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/go_02_users_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30001 k6/scenarios/02_users_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/php_02_users_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30002 k6/scenarios/02_users_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/java_02_users_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30003 k6/scenarios/02_users_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/nodejs_02_users_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30004 k6/scenarios/02_users_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/dotnet_02_users_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30005 k6/scenarios/02_users_max.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/bun_02_users_max_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30006 k6/scenarios/02_users_max.js
+```
+
+### 3) Mixed
+
+```bash
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/go_03_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30001 -e VUS=50 -e DURATION=5m k6/scenarios/03_mixed.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/php_03_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30002 -e VUS=50 -e DURATION=5m k6/scenarios/03_mixed.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/java_03_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30003 -e VUS=50 -e DURATION=5m k6/scenarios/03_mixed.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/nodejs_03_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30004 -e VUS=50 -e DURATION=5m k6/scenarios/03_mixed.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/dotnet_03_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30005 -e VUS=50 -e DURATION=5m k6/scenarios/03_mixed.js
+
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/bun_03_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30006 -e VUS=50 -e DURATION=5m k6/scenarios/03_mixed.js
+```
+
+Пример в одну строку (как ты писал):
+
+```bash
+K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT=k6/reports/nodejs_05_mixed_report.html \
+  k6 run -e BASE_URL=http://192.168.1.254:30004 -e VUS=50 -e DURATION=5m \
+  k6/scenarios/05_mixed.js
+```
+
+## Max RPS (сценарии 1, 2, 3b, 4b)
+
+Используется `ramping-arrival-rate`: ступени от `START_RATE` до `MAX_RATE`.
+
+| Env | Default | Смысл |
+|-----|---------|--------|
+| `BASE_URL` | `http://localhost:8080` | цель |
+| `START_RATE` | `100` | нач. req/s |
+| `MAX_RATE` | `10000` | потолок req/s |
+| `STAGE_TIME` | `20s` | длина ступени |
+| `PRE_VUS` | `50` | pre-allocated VUs |
+| `MAX_VUS` | `500` | потолок VUs |
+
+Смотри в summary пиковый `http_reqs` rate и `http_req_duration` p95/p99.
+Если сервис падает — k6 печатает abort и останавливается.
+
+```bash
+k6 run -e MAX_RATE=20000 -e MAX_VUS=1000 -e STAGE_TIME=30s k6/scenarios/01_beers_max.js
+```
+
+## Fill (сценарии 3a / 4a)
+
+| Env | Default (03 / 04) | Смысл |
+|-----|-------------------|--------|
+| `TARGET_USERS` | `1000000` / `10000000` | сколько создать |
+| `FILL_RATE` | `50` / `40` | целевой суммарный RPS записи |
+| `FILL_VUS` | `5` | параллелизм fill |
+| `FILL_MAX_DURATION` | `48h` | таймаут fill |
+
+Оценка времени fill: `TARGET_USERS / FILL_RATE` секунд  
+(1M @ 50 RPS ≈ 5.5 ч; 10M @ 40 RPS ≈ 69 ч).
+
+Для отладки всегда начинай с малого:
+
+```bash
+TARGET_USERS=5000 FILL_RATE=100 bash k6/scripts/03_users_then_votes.sh
+TARGET_USERS=5000 FILL_RATE=100 bash k6/scripts/04_init_then_results.sh
+```
+
+### Сценарий 3 подробнее
+
+1. `03a_fill_users.js` создаёт пользователей и печатает `UID=<uuid>`
+2. shell сохраняет id в `k6/data/user-ids.txt`
+3. `03b_votes_max.js` читает файл в `SharedArray` и лупит `POST /v1/votes`
+
+Повторные голоса дают `409` — это нормально, эндпоинт всё равно нагружается.
+
+### Сценарий 4 подробнее
+
+1. `04a` — каждая итерация: create user → vote  
+2. `04b` — только `GET /v1/results` на максимум  
+
+Состояние должно остаться в **том же pod/процессе** между 04a и 04b (не рестартовать сервис).
+
+## Abort при connection refused
+
+Все вызовы идут через `lib/endpoints.js` → `lib/abort.js`:
+- `status === 0` (refused / reset / dial error) → `exec.test.abort(...)`
+- тест прекращается сразу, без «добивания» пустого инстанса
+
+## Mixed (сценарий 5)
+
+Веса: create+vote 35%, results 20%, list users 15%, beers 10%, health 5%, edge 10%, heavy list 5%.
+
+```bash
+k6 run -e BASE_URL=http://localhost:8080 -e VUS=50 -e DURATION=5m k6/scenarios/05_mixed.js
+```
+
+## Сравнение языков
+
+1. Один и тот же сценарий + те же env  
+2. Одинаковые k3s limits  
+3. Свежий pod перед прогоном (пустая память)  
+4. Для 3/4 — не рестартовать между fill и hammer  
 
 ## Структура
 
 ```text
 k6/
-  lib/
-    helpers.js      # BASE_URL, random, weighted pick
-    endpoints.js    # обёртки над HTTP API
-    traffic.js      # общий микс нагрузки
-    summary.js      # thresholds + summary.json
-  scenarios/
-    smoke.js        # 1 VU, happy-path sanity
-    load.js         # основной профиль для митапа
-    stress.js       # ступенчатый рост до высокого VU
-    spike.js        # резкий всплеск
+  lib/           abort, endpoints, fill, maxrps, helpers, traffic, summary
+  scenarios/     01..05 + smoke + 03a/03b + 04a/04b
+  scripts/       03_users_then_votes.sh, 04_init_then_results.sh
+  data/          user-ids.txt (генерируется)
+  reports/       HTML-отчёты K6_WEB_DASHBOARD_EXPORT (локально)
 ```
-
-## Установка k6
-
-```bash
-# Debian/Ubuntu
-sudo gpg -k
-sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-  --keyserver hkp://keyserver.ubuntu.com:80 \
-  --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
-echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-  | sudo tee /etc/apt/sources.list.d/k6.list
-sudo apt update && sudo apt install k6
-
-# или https://grafana.com/docs/k6/latest/set-up/install-k6/
-k6 version
-```
-
-## Быстрый старт
-
-Подними любой runtime на `:8080`, затем:
-
-```bash
-# 1) Проверка, что API жив и контракт совпадает
-k6 run k6/scenarios/smoke.js
-
-# 2) Основная нагрузка для сравнения языков
-k6 run k6/scenarios/load.js
-
-# 3) Другой base URL (сервис в k3s / другой порт)
-k6 run -e BASE_URL=http://localhost:8080 k6/scenarios/load.js
-```
-
-Запускай из **корня репозитория** (`k8s-language-experiments`), чтобы относительные импорты `../lib/...` резолвились.
-
-## Что делает load.js
-
-Один VU-итерационный микс (~100%):
-
-| Вес | Действие | Зачем |
-|-----|----------|--------|
-| 35% | `POST /users` → сразу `POST /votes` | write path |
-| 20% | `GET /results` | online aggregation |
-| 15% | `GET /users` (random sort/page) | sort + pagination |
-| 10% | `GET /beers` | лёгкий hot read |
-| 5% | `GET /health` | probe noise |
-| 10% | негатив: 400/404/409 | error paths |
-| 5% | heavy list `page_size=100&sort=name` | тяжёлое чтение |
-
-Профиль по умолчанию: **ramp 30s → 50 VU × 5m → ramp-down 30s**.
-
-## Параметры (env)
-
-| Переменная | Где | Default | Смысл |
-|------------|-----|---------|--------|
-| `BASE_URL` | все | `http://localhost:8080` | адрес API |
-| `VUS` | load | `50` | целевые виртуальные пользователи |
-| `DURATION` | load | `5m` | длина полки |
-| `RAMP_UP` | load | `30s` | разгон |
-| `RAMP_DOWN` | load | `30s` | спад |
-| `SLEEP` | load/stress/spike | `0.1` | пауза между итерациями (сек) |
-| `P95_MS` | все | `300` (load) | порог p95 |
-| `VUS_MAX` | stress | `200` | пик stress |
-| `BASE_VUS` / `SPIKE_VUS` | spike | `10` / `150` | база и пик spike |
-
-Примеры:
-
-```bash
-# Помягче локально
-k6 run -e VUS=20 -e DURATION=2m -e P95_MS=500 k6/scenarios/load.js
-
-# Жёстче под k3s demo
-k6 run -e BASE_URL=http://192.168.1.10:30080 -e VUS=80 -e DURATION=8m k6/scenarios/load.js
-
-# Stress / spike
-k6 run -e BASE_URL=http://localhost:8080 -e VUS_MAX=150 k6/scenarios/stress.js
-k6 run -e BASE_URL=http://localhost:8080 -e SPIKE_VUS=120 k6/scenarios/spike.js
-```
-
-## Как читать результат
-
-В конце прогона k6 печатает summary и пишет `summary.json` в **текущую директорию**.
-
-Смотри в первую очередь:
-
-- `http_reqs` / RPS
-- `http_req_duration` → `p(95)`, `p(99)`
-- `http_req_duration{endpoint:...}` — latency по эндпоинтам
-- `checks` — доля успешных проверок
-- кастомные счётчики: `users_created`, `votes_ok`, `votes_conflict`, `edge_cases`
-
-Для честного сравнения языков:
-
-1. Одинаковые k3s `requests`/`limits`
-2. Один и тот же `load.js` + те же `VUS`/`DURATION`
-3. Перед каждым прогоном новый/пустой pod (in-memory state с нуля)
-4. Сначала `smoke.js`, потом `load.js`
-
-## Типичный порядок на митапе
-
-```bash
-# Java
-k6 run -e BASE_URL=http://localhost:8080 k6/scenarios/smoke.js
-k6 run -e BASE_URL=http://localhost:8080 -e VUS=50 -e DURATION=5m k6/scenarios/load.js
-# сохрани summary / скрин / метрики pod
-
-# затем то же для go / dotnet / nodejs / php
-```
-
-## Troubleshooting
-
-- **`connection refused`** — сервис не слушает `BASE_URL`, проверь `curl $BASE_URL/health`
-- **много failed checks на vote** — ок, если сервис ещё поднимается; для smoke fail hard ожидаем
-- **`http_req_failed` растёт** — негативный трафик помечен `expectedStatuses` (400/404/409 не считаются fail); если растёт дальше — смотри 5xx
-- **скрипт не находит import** — запускай из корня репо: `k6 run k6/scenarios/load.js`

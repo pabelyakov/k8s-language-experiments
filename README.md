@@ -8,6 +8,11 @@ cd nodejs
 docker build -t beer-vote:nodejs .
 docker run --rm -p 8080:8080 beer-vote:nodejs
 
+# Bun
+cd nodejs
+docker build -f Dockerfile.bun -t beer-vote:bun .
+docker run --rm -p 8080:8080 beer-vote:bun
+
 # .NET 8 (ASP.NET Core)
 cd dotnet
 docker build -t beer-vote:dotnet .
