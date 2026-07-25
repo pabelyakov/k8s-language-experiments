@@ -26,7 +26,8 @@ public sealed class UserService
         var comparer = ComparerFor(sort);
         if (string.Equals(order, "desc", StringComparison.OrdinalIgnoreCase))
         {
-            comparer = Comparer<User>.Create((a, b) => comparer.Compare(b, a));
+            var ascending = comparer;
+            comparer = Comparer<User>.Create((a, b) => ascending.Compare(b, a));
         }
 
         var sorted = _users.Values.ToList();
