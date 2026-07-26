@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: beer-vote
-          image: ghcr.io/pabelyakov/beer-vote:bun-1-3-14
+          image: ghcr.io/pabelyakov/beer-vote:bun-1.3.14
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
