@@ -1,0 +1,7 @@
+/beer-vote
+*.exe
+*.test
+*.out
+.idea/
+.vscode/
+*.swp
